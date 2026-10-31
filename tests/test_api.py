@@ -12,10 +12,24 @@ def test_health_check():
 
 
 def test_root_redirect():
-    """Verify root URL redirects to Swagger docs."""
+    """Verify root URL redirects to /chat-ui."""
     response = client.get("/", follow_redirects=False)
     assert response.status_code == 307
-    assert response.headers["location"] == "/docs"
+    assert response.headers["location"] == "/chat-ui"
+
+
+def test_chat_ui_page():
+    """Verify /chat-ui serves HTML."""
+    response = client.get("/chat-ui")
+    assert response.status_code == 200
+    assert "NexusAI Support Triage" in response.text
+
+
+def test_image_ui_page():
+    """Verify /image-ui serves HTML."""
+    response = client.get("/image-ui")
+    assert response.status_code == 200
+    assert "NexusAI Prompt Studio" in response.text
 
 
 def test_create_item():

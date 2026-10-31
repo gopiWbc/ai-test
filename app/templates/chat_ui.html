@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusAI — Customer Support & Ticket Triage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0d14;
+      --bg-secondary: #111726;
+      --bg-card: rgba(19, 26, 42, 0.75);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.6);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.15);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --info: #38bdf8;
+      --info-bg: rgba(56, 189, 248, 0.15);
+      --purple: #a855f7;
+      --purple-bg: rgba(168, 85, 247, 0.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                  radial-gradient(circle at 85% 85%, rgba(56, 189, 248, 0.06) 0%, transparent 40%),
+                  var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(10, 13, 20, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 16px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: white;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .brand-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 999px;
+      font-size: 12px;
+      color: #34d399;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 32px;
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 28px;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 20px 16px;
+      }
+    }
+
+    /* Cards */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-card);
+    }
+
+    .card-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Model Selection Box */
+    .model-selector-card {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(56, 189, 248, 0.04));
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 18px;
+    }
+
+    .model-selector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .model-selector-header label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #c7d2fe;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .model-count-badge {
+      font-size: 11px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .model-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    select.model-dropdown {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    select.model-dropdown:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn-refresh-models {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-refresh-models:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* Presets */
+    .presets-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-card);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .preset-chip:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent);
+      color: #c7d2fe;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="text"], textarea, select.style-select {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text-main);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus, textarea:focus, select.style-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 130px;
+      line-height: 1.5;
+    }
+
+    /* Image Style Bar */
+    .style-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .button-full-row {
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: none;
+    }
+
+    button.btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+    }
+
+    button.btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+    }
+
+    button.btn-stream {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-card);
+      color: #38bdf8;
+    }
+
+    button.btn-stream:hover:not(:disabled) {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: #38bdf8;
+      transform: translateY(-2px);
+    }
+
+    button.btn-image {
+      width: 100%;
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      color: white;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
+    }
+
+    button.btn-image:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(168, 85, 247, 0.45);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Output Panel */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+
+    .triage-results {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    .badge-critical { background: var(--danger-bg); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-high { background: var(--warning-bg); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-medium { background: var(--info-bg); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-low { background: var(--success-bg); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .summary-card {
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .summary-card h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #818cf8;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .summary-card p {
+      font-size: 14px;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+
+    .reply-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      position: relative;
+    }
+
+    .reply-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .reply-header h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .reply-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #f8fafc;
+      white-space: pre-wrap;
+      font-family: inherit;
+    }
+
+    .meta-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      padding-top: 8px;
+    }
+
+    /* Image Results Card */
+    .image-results {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .image-frame {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      background: #000;
+      min-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-frame img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: opacity 0.4s ease;
+    }
+
+    .enhanced-prompt-box {
+      background: rgba(168, 85, 247, 0.06);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .enhanced-prompt-box h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #c084fc;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .enhanced-prompt-box p {
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.5;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .image-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-download {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #c084fc;
+      color: white;
+    }
+
+    /* Loader */
+    .loading-spinner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 40px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>NexusAI Support & Image Studio</h1>
+        <p>Enterprise LLM Triage + AI Visual Generation</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/docs" target="_blank" style="color: var(--text-muted); font-size: 12px; text-decoration: none; padding: 6px 12px; border: 1px solid var(--border-card); border-radius: 6px;">📖 Swagger Docs</a>
+      <div class="status-badge" id="hostStatus">
+        <span class="status-dot"></span>
+        <span id="hostLabel">Ollama: 192.168.1.16</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Panel: Input Ticket -->
+    <div class="glass-card">
+      <div class="card-header">
+        <h2>📥 Incoming Ticket / Concept Input</h2>
+      </div>
+
+      <!-- Prominent Model Selector Dropdown -->
+      <div class="model-selector-card">
+        <div class="model-selector-header">
+          <label for="modelSelect">🤖 Active Ollama Model</label>
+          <span class="model-count-badge" id="modelCountBadge">Scanning...</span>
+        </div>
+        <div class="model-input-row">
+          <select id="modelSelect" class="model-dropdown">
+            <option value="qwen3.5:9b">qwen3.5:9b (Recommended)</option>
+            <option value="llama3.2">llama3.2</option>
+            <option value="llama3">llama3</option>
+            <option value="mistral">mistral</option>
+            <option value="deepseek-r1">deepseek-r1</option>
+            <option value="phi3">phi3</option>
+          </select>
+          <button class="btn-refresh-models" onclick="loadModels()" title="Scan Ollama host for newly pulled models">
+            <span id="refreshIcon">🔄</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="presets-bar">
+        <span class="preset-chip" onclick="loadPreset('delayed')">📦 Delayed Shipping</span>
+        <span class="preset-chip" onclick="loadPreset('billing')">💳 Double Charge</span>
+        <span class="preset-chip" onclick="loadPreset('security')">🚨 Account Security</span>
+        <span class="preset-chip" onclick="loadPreset('bug')">🐛 App Checkout Crash</span>
+        <span class="preset-chip" onclick="loadPreset('feature')">💡 Feature Request</span>
+        <span class="preset-chip" onclick="loadPreset('praise')">⭐ Glowing Review</span>
+      </div>
+
+      <div class="form-group">
+        <label>Customer Name</label>
+        <input type="text" id="custName" value="Sarah Connor" placeholder="e.g. John Doe">
+      </div>
+
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="custSubject" value="Package delayed for 2 weeks & no response!" placeholder="Issue subject">
+      </div>
+
+      <div class="form-group">
+        <label>Message Content / Visual Scenario</label>
+        <textarea id="custMessage" placeholder="Paste incoming customer message here...">Hi, I placed order #9482 over two weeks ago. The tracking hasn't updated in 9 days. Nobody is answering my emails! I need this for my son's birthday this Saturday. Please expedite or refund me immediately!</textarea>
+      </div>
+
+      <!-- Visual Style Selector for Image Generation -->
+      <div class="form-group">
+        <label>Image Art Style</label>
+        <select id="imageStyle" class="style-select">
+          <option value="cinematic photorealistic, 8k, moody lighting, shallow depth of field">🎬 Cinematic Photorealistic (Default)</option>
+          <option value="3D Pixar style digital render, vibrant lighting, expressive characters">🧸 3D Pixar Animation Style</option>
+          <option value="cyberpunk neon lighting, rain reflections, futuristic aesthetic">🌆 Cyberpunk & Neon Glow</option>
+          <option value="editorial magazine cover photography, studio lighting">📸 Editorial Studio Photography</option>
+          <option value="watercolor art illustration, expressive ink splatters">🎨 Watercolor Illustration</option>
+          <option value="anime Kyoto Animation aesthetic, detailed clouds, sun rays">✨ Anime Masterpiece</option>
+        </select>
+      </div>
+
+      <div class="button-row">
+        <button class="btn-primary" id="btnAnalyze" onclick="handleAnalyze()">
+          <span>⚡ Triage Ticket</span>
+        </button>
+        <button class="btn-stream" id="btnStream" onclick="handleStream()">
+          <span>🌊 Stream Reply</span>
+        </button>
+      </div>
+
+      <div class="button-full-row">
+        <button class="btn-image" id="btnGenImage" onclick="handleGenerateImage()">
+          <span>🎨 Generate Image with Selected Model</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Panel: AI Results -->
+    <div class="glass-card" id="outputCard">
+      <div class="card-header">
+        <h2 id="outputTitle">🧠 AI Intelligence & Visual Output</h2>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">✨</div>
+        <h3>Ready for AI Generation</h3>
+        <p>Pick a model above, then choose: <strong>"Triage Ticket"</strong> for text classification or <strong>"Generate Image"</strong> to visualize the scene using your selected Ollama model!</p>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-spinner" id="loadingState">
+        <div class="spinner"></div>
+        <span id="loadingMessage">Connecting to Ollama model...</span>
+      </div>
+
+      <!-- Text Triage Results Display -->
+      <div class="triage-results" id="resultsState">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Urgency Priority</span>
+            <div id="urgencyBadge" class="badge badge-critical">CRITICAL</div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Customer Sentiment</span>
+            <div id="sentimentBadge" class="badge badge-high">Angry</div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Category</span>
+            <div id="categoryBadge" class="badge badge-medium">Shipping & Delivery</div>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <h4>Executive Summary</h4>
+          <p id="summaryText">Customer has not received order #9482 for 2 weeks with frozen tracking.</p>
+        </div>
+
+        <div class="reply-card">
+          <div class="reply-header">
+            <h4>Recommended Customer Reply Draft</h4>
+            <button class="copy-btn" onclick="copyReply()">📋 Copy Text</button>
+          </div>
+          <div class="reply-body" id="replyBody"></div>
+        </div>
+
+        <div class="meta-footer">
+          <span id="modelMetric">Model: qwen3.5:9b</span>
+          <span id="timeMetric">⚡ 1.42s</span>
+        </div>
+      </div>
+
+      <!-- Image Generation Results Display -->
+      <div class="image-results" id="imageState">
+        <div class="image-frame">
+          <img id="generatedImg" src="" alt="AI Generated Image" loading="lazy">
+        </div>
+
+        <div class="enhanced-prompt-box">
+          <h4>🎨 Enriched by <span id="imageModelTag">qwen3.5:9b</span>:</h4>
+          <p id="enhancedPromptText"></p>
+        </div>
+
+        <div class="image-actions">
+          <a id="btnDownloadImg" class="btn-download" href="#" target="_blank" download="nexus_ai_image.jpg">
+            <span>💾 Open Full Res / Save Image</span>
+          </a>
+          <button class="btn-stream" onclick="handleGenerateImage()" style="flex: 0 0 auto;">
+            <span>🔄 Re-roll Variation</span>
+          </button>
+        </div>
+
+        <div class="meta-footer">
+          <span id="imageTimeMetric">⚡ Rendered in 3.12s</span>
+          <span>Engine: Flux Diffusion</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const presets = {
+      delayed: {
+        name: "Sarah Connor",
+        subject: "Package delayed for 2 weeks & no response!",
+        message: "Hi, I placed order #9482 over two weeks ago. The tracking hasn't updated in 9 days. Nobody is answering my emails! I need this for my son's birthday this Saturday. Please expedite or refund me immediately!"
+      },
+      billing: {
+        name: "David Miller",
+        subject: "Billed twice on invoice #INV-4028",
+        message: "Hello team, I just inspected my bank statement and noticed two identical charges of $149.00 on the same date for invoice #INV-4028. Could you please reverse the duplicate charge as soon as possible?"
+      },
+      security: {
+        name: "Michael Chang",
+        subject: "URGENT: Unauthorized password change and email login alert",
+        message: "I just received an email notification that my password was reset from an unfamiliar IP address in a foreign country. I did NOT authorize this. Please freeze my account and cancel any pending orders immediately!"
+      },
+      bug: {
+        name: "Alex Rivera",
+        subject: "App crashes when tapping Checkout on iOS 18.2",
+        message: "Every time I tap the 'Place Order' button on my iPhone 15 running iOS 18.2, the app closes immediately without confirmation. I have $250 worth of items in my cart and can't complete my purchase."
+      },
+      feature: {
+        name: "Elena Rostova",
+        subject: "Feature Request: Dark mode and CSV data export",
+        message: "Hi there! We are loving the dashboard product so far. Our team works late shifts and would greatly benefit from a native dark mode theme. Also, having the ability to export our monthly reports to CSV would save us hours."
+      },
+      praise: {
+        name: "Emily Watson",
+        subject: "Thank you for the quick replacement!",
+        message: "Just wanted to write a quick note saying thank you! The replacement ceramic mug arrived today in perfect condition and the handwritten note was such a sweet touch. Amazing customer service!"
+      }
+    };
+
+    function loadPreset(key) {
+      const data = presets[key];
+      if (!data) return;
+      document.getElementById('custName').value = data.name;
+      document.getElementById('custSubject').value = data.subject;
+      document.getElementById('custMessage').value = data.message;
+    }
+
+    // Dynamic model discovery from Ollama host
+    async function loadModels() {
+      const select = document.getElementById('modelSelect');
+      const countBadge = document.getElementById('modelCountBadge');
+      const refreshIcon = document.getElementById('refreshIcon');
+      
+      refreshIcon.style.display = 'inline-block';
+      refreshIcon.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 600 });
+      countBadge.textContent = 'Scanning...';
+
+      try {
+        const res = await fetch('/api/v1/triage/models');
+        if (!res.ok) throw new Error('Host unreachable');
+        const data = await res.json();
+        
+        if (data.available_models && data.available_models.length > 0) {
+          const currentVal = select.value;
+          select.innerHTML = '';
+          data.available_models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.size_gb} GB)`;
+            select.appendChild(opt);
+          });
+          // Preserve selection if possible
+          if ([...select.options].some(o => o.value === currentVal)) {
+            select.value = currentVal;
+          }
+          countBadge.textContent = `🟢 ${data.available_models.length} Online`;
+          countBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+          countBadge.style.color = '#34d399';
+        } else {
+          countBadge.textContent = 'Standard Models';
+        }
+      } catch (e) {
+        console.warn('Could not auto-fetch models from Ollama host:', e);
+        countBadge.textContent = 'Offline (Presets Active)';
+        countBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+        countBadge.style.color = '#fbbf24';
+      }
+    }
+    loadModels();
+
+    function setBadgeStyle(elem, type, text) {
+      elem.textContent = text;
+      elem.className = 'badge';
+      const t = text.toUpperCase();
+      if (t.includes('CRITICAL') || t.includes('ANGRY')) elem.classList.add('badge-critical');
+      else if (t.includes('HIGH') || t.includes('FRUSTRATED')) elem.classList.add('badge-high');
+      else if (t.includes('MEDIUM') || t.includes('NEUTRAL')) elem.classList.add('badge-medium');
+      else elem.classList.add('badge-low');
+    }
+
+    async function handleAnalyze() {
+      const selectedModel = document.getElementById('modelSelect').value || null;
+      const payload = {
+        customer_name: document.getElementById('custName').value.trim(),
+        subject: document.getElementById('custSubject').value.trim(),
+        message: document.getElementById('custMessage').value.trim(),
+        model: selectedModel
+      };
+
+      if (!payload.message) {
+        alert('Please enter a ticket message');
+        return;
+      }
+
+      const empty = document.getElementById('emptyState');
+      const loading = document.getElementById('loadingState');
+      const results = document.getElementById('resultsState');
+      const imageState = document.getElementById('imageState');
+      const btn = document.getElementById('btnAnalyze');
+      const loadMsg = document.getElementById('loadingMessage');
+
+      loadMsg.textContent = `Running triage on Ollama model '${selectedModel}'...`;
+      empty.style.display = 'none';
+      results.style.display = 'none';
+      imageState.style.display = 'none';
+      loading.style.display = 'flex';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/triage/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Failed to triage ticket');
+        }
+
+        const data = await res.json();
+
+        setBadgeStyle(document.getElementById('urgencyBadge'), 'urgency', data.urgency);
+        setBadgeStyle(document.getElementById('sentimentBadge'), 'sentiment', data.sentiment);
+        document.getElementById('categoryBadge').textContent = data.category;
+        document.getElementById('summaryText').textContent = data.summary;
+        document.getElementById('replyBody').textContent = data.suggested_reply;
+        document.getElementById('modelMetric').textContent = `Model: ${data.model_used}`;
+        document.getElementById('timeMetric').textContent = `⚡ ${data.processing_time_seconds}s`;
+
+        loading.style.display = 'none';
+        results.style.display = 'flex';
+      } catch (err) {
+        alert('Triage Error: ' + err.message);
+        loading.style.display = 'none';
+        empty.style.display = 'flex';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleStream() {
+      const selectedModel = document.getElementById('modelSelect').value || null;
+      const payload = {
+        customer_name: document.getElementById('custName').value.trim(),
+        subject: document.getElementById('custSubject').value.trim(),
+        message: document.getElementById('custMessage').value.trim(),
+        model: selectedModel
+      };
+
+      const empty = document.getElementById('emptyState');
+      const loading = document.getElementById('loadingState');
+      const results = document.getElementById('resultsState');
+      const imageState = document.getElementById('imageState');
+      const replyBody = document.getElementById('replyBody');
+      const btn = document.getElementById('btnStream');
+
+      empty.style.display = 'none';
+      loading.style.display = 'none';
+      imageState.style.display = 'none';
+      results.style.display = 'flex';
+      replyBody.textContent = `Typing response using ${selectedModel}...`;
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/triage/stream-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Streaming failed');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        replyBody.textContent = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          replyBody.textContent += decoder.decode(value, { stream: true });
+        }
+      } catch (err) {
+        alert('Stream Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleGenerateImage() {
+      const selectedModel = document.getElementById('modelSelect').value || null;
+      const subject = document.getElementById('custSubject').value.trim();
+      const message = document.getElementById('custMessage').value.trim();
+      const style = document.getElementById('imageStyle').value;
+
+      const promptText = subject ? `${subject} - ${message.slice(0, 200)}` : message;
+      if (!promptText) {
+        alert('Please provide a subject or message to visualize');
+        return;
+      }
+
+      const empty = document.getElementById('emptyState');
+      const loading = document.getElementById('loadingState');
+      const results = document.getElementById('resultsState');
+      const imageState = document.getElementById('imageState');
+      const btn = document.getElementById('btnGenImage');
+      const loadMsg = document.getElementById('loadingMessage');
+
+      loadMsg.textContent = `Selected Ollama model '${selectedModel}' is crafting a visual prompt...`;
+      empty.style.display = 'none';
+      results.style.display = 'none';
+      imageState.style.display = 'none';
+      loading.style.display = 'flex';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/triage/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: promptText,
+            style: style,
+            model: selectedModel
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Image generation failed');
+        }
+
+        const data = await res.json();
+
+        // Update image view
+        const img = document.getElementById('generatedImg');
+        img.src = data.image_url;
+        document.getElementById('enhancedPromptText').textContent = data.enhanced_prompt;
+        document.getElementById('imageModelTag').textContent = data.model_used;
+        document.getElementById('btnDownloadImg').href = data.image_url;
+        document.getElementById('imageTimeMetric').textContent = `⚡ Enriched in ${data.processing_time_seconds}s`;
+
+        loading.style.display = 'none';
+        imageState.style.display = 'flex';
+      } catch (err) {
+        alert('Image Generation Error: ' + err.message);
+        loading.style.display = 'none';
+        empty.style.display = 'flex';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function copyReply() {
+      const text = document.getElementById('replyBody').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => { btn.textContent = '📋 Copy Text'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

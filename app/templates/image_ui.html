@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusAI — AI Image Prompt Enhancer Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0d14;
+      --bg-secondary: #111726;
+      --bg-card: rgba(19, 26, 42, 0.75);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #a855f7;
+      --accent-hover: #9333ea;
+      --accent-glow: rgba(168, 85, 247, 0.35);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+    body {
+      background: radial-gradient(circle at 85% 15%, rgba(168, 85, 247, 0.1) 0%, transparent 40%),
+                  radial-gradient(circle at 15% 85%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                  var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(10, 13, 20, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 14px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; color: white;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+    }
+    .brand-text h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+    .brand-text p { font-size: 11px; color: var(--text-muted); }
+
+    .nav-tabs {
+      display: flex; gap: 6px; background: rgba(255, 255, 255, 0.04);
+      padding: 4px; border-radius: 10px; border: 1px solid var(--border-card);
+    }
+    .nav-tab {
+      padding: 6px 14px; font-size: 13px; font-weight: 600; text-decoration: none;
+      border-radius: 7px; color: var(--text-muted); transition: all 0.2s;
+    }
+    .nav-tab.active {
+      background: linear-gradient(135deg, #a855f7, #9333ea); color: white;
+      box-shadow: 0 2px 10px rgba(168, 85, 247, 0.4);
+    }
+    .nav-tab:hover:not(.active) { color: white; background: rgba(255, 255, 255, 0.06); }
+
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 999px;
+      font-size: 12px; color: #34d399; font-weight: 500;
+    }
+    .status-dot {
+      width: 8px; height: 8px; background: #10b981; border-radius: 50%;
+      box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+
+    main {
+      flex: 1; max-width: 1440px; width: 100%; margin: 0 auto;
+      padding: 24px 32px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 28px;
+    }
+    @media (max-width: 1024px) { main { grid-template-columns: 1fr; padding: 20px 16px; } }
+
+    .glass-card {
+      background: var(--bg-card); backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card); border-radius: var(--radius-lg);
+      padding: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      display: flex; flex-direction: column;
+    }
+
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border-card);
+      flex-wrap: wrap; gap: 10px;
+    }
+    .card-header h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+    /* Model Selector */
+    .model-selector-card {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(236, 72, 153, 0.04));
+      border: 1px solid rgba(168, 85, 247, 0.25); border-radius: var(--radius-md);
+      padding: 12px 14px; margin-bottom: 16px;
+    }
+    .model-selector-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+    }
+    .model-selector-header label {
+      font-size: 11px; font-weight: 600; color: #e9d5ff; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .model-count-badge {
+      font-size: 11px; background: rgba(168, 85, 247, 0.2); color: #d8b4fe;
+      padding: 2px 8px; border-radius: 999px; font-weight: 600;
+    }
+    .model-input-row { display: flex; gap: 8px; }
+    select.model-dropdown, select.style-select {
+      flex: 1; background: var(--bg-secondary); border: 1px solid var(--border-card);
+      color: var(--text-main); padding: 10px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; cursor: pointer; outline: none;
+    }
+    select.model-dropdown:focus, select.style-select:focus { border-color: var(--accent); }
+    .btn-refresh-models {
+      background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-card);
+      color: var(--text-muted); padding: 0 14px; border-radius: var(--radius-sm);
+      cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    }
+    .btn-refresh-models:hover { background: rgba(168, 85, 247, 0.15); color: white; }
+
+    /* Presets */
+    .presets-bar {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+      overflow-x: auto; padding-bottom: 4px;
+    }
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-card);
+      padding: 6px 12px; border-radius: 999px; font-size: 11px; color: var(--text-muted);
+      cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    }
+    .preset-chip:hover {
+      background: rgba(168, 85, 247, 0.15); border-color: var(--accent); color: #e9d5ff;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block; font-size: 11px; font-weight: 500; color: var(--text-muted);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    textarea {
+      width: 100%; background: var(--bg-secondary); border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm); padding: 12px 14px; color: var(--text-main);
+      font-size: 14px; outline: none; transition: all 0.2s; resize: vertical; min-height: 120px; line-height: 1.5;
+    }
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+    .style-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+
+    button.btn-enhance {
+      width: 100%; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 14px;
+      font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 10px; background: linear-gradient(135deg, #a855f7, #ec4899); color: white;
+      box-shadow: 0 6px 25px rgba(168, 85, 247, 0.4); border: none; transition: all 0.2s ease;
+      margin-top: 8px;
+    }
+    button.btn-enhance:hover:not(:disabled) {
+      transform: translateY(-2px); box-shadow: 0 10px 30px rgba(168, 85, 247, 0.6);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    /* Output Section */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; padding: 40px 20px; color: var(--text-dim);
+    }
+    .empty-icon { font-size: 54px; margin-bottom: 12px; opacity: 0.6; }
+
+    .prompt-results { display: none; flex-direction: column; gap: 14px; }
+
+    .prompt-box {
+      background: var(--bg-secondary); border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm); padding: 16px; position: relative;
+    }
+
+    .prompt-box-primary {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(236, 72, 153, 0.04));
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .prompt-box-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+    }
+    .prompt-box-header h4 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #d8b4fe;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-card);
+      color: var(--text-muted); padding: 5px 12px; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: var(--accent); color: white; }
+
+    .copy-all-btn {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(236, 72, 153, 0.25));
+      border: 1px solid rgba(168, 85, 247, 0.5);
+      color: #f8fafc;
+      font-weight: 700;
+      padding: 6px 14px;
+      font-size: 12px;
+    }
+    .copy-all-btn:hover {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: white;
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* Master Top Action Banner */
+    .master-action-banner {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(99, 102, 241, 0.12));
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .banner-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .banner-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #c084fc;
+    }
+    .banner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-action-pill {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+    }
+    .btn-action-primary {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: white;
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.35);
+    }
+    .btn-action-primary:hover {
+      box-shadow: 0 6px 18px rgba(168, 85, 247, 0.55);
+      transform: translateY(-1px);
+    }
+    .btn-action-image {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+    .btn-action-image:hover {
+      box-shadow: 0 6px 18px rgba(6, 182, 212, 0.5);
+      transform: translateY(-1px);
+    }
+    .btn-action-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border-card);
+      color: #e2e8f0;
+    }
+    .btn-action-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    .btn-master-copy {
+      flex: 1;
+      padding: 13px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 700;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2));
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #e9d5ff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-master-copy:hover {
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      color: white;
+      box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
+      transform: translateY(-1px);
+    }
+    .master-bottom-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    /* Toast Notification */
+    .toast-notification {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      border: 1px solid #a855f7;
+      color: #f8fafc;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-notification.show {
+      display: flex;
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .prompt-text {
+      font-size: 13.5px; line-height: 1.6; color: #f8fafc; font-family: 'JetBrains Mono', monospace;
+      white-space: pre-wrap; word-break: break-word;
+    }
+
+    .meta-cards-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+
+    .meta-card {
+      background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm); padding: 12px;
+    }
+    .meta-card h5 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 4px;
+    }
+    .meta-card p {
+      font-size: 13px; color: #e2e8f0; line-height: 1.4;
+    }
+
+    .tags-row {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+    }
+    .tag-chip {
+      background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3);
+      color: #e9d5ff; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 6px;
+    }
+
+    .meta-footer { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); padding-top: 6px; }
+
+    .loading-spinner {
+      display: none; align-items: center; justify-content: center; gap: 12px;
+      padding: 60px 40px; color: var(--text-muted); font-size: 14px;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid rgba(168, 85, 247, 0.2);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">✨</div>
+      <div class="brand-text">
+        <h1>NexusAI Prompt Studio</h1>
+        <p>Enterprise Prompt Engineering for Midjourney, SD & Flux</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs between UIs -->
+    <div class="nav-tabs">
+      <a href="/chat-ui" class="nav-tab">🎯 Support Triage</a>
+      <a href="/image-ui" class="nav-tab active">✨ Prompt Enhancer</a>
+    </div>
+
+    <div class="header-actions">
+      <a href="/docs" target="_blank" style="color: var(--text-muted); font-size: 12px; text-decoration: none; padding: 6px 12px; border: 1px solid var(--border-card); border-radius: 6px;">📖 Swagger Docs</a>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Ollama: 192.168.1.16</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Panel: Prompt Controls -->
+    <div class="glass-card">
+      <div class="card-header">
+        <h2>🎨 Visual Concept & Style Studio</h2>
+      </div>
+
+      <!-- Model Selector -->
+      <div class="model-selector-card">
+        <div class="model-selector-header">
+          <label for="modelSelect">🤖 Prompt Director (Ollama Model)</label>
+          <span class="model-count-badge" id="modelCountBadge">Scanning...</span>
+        </div>
+        <div class="model-input-row">
+          <select id="modelSelect" class="model-dropdown">
+            <option value="qwen3-coder:30b">qwen3-coder:30b (Recommended)</option>
+            <option value="qwen3.5:9b">qwen3.5:9b</option>
+            <option value="llama3.2">llama3.2</option>
+            <option value="mistral">mistral</option>
+            <option value="deepseek-r1">deepseek-r1</option>
+            <option value="llama3">llama3</option>
+          </select>
+          <button class="btn-refresh-models" onclick="loadModels()">
+            <span id="refreshIcon">🔄</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Preset Inspiration Chips -->
+      <div class="presets-bar">
+        <span class="preset-chip" onclick="setPrompt('Deadpool and Spider-Man standing together in a cyberpunk city')">🦸 Deadpool & Spidey</span>
+        <span class="preset-chip" onclick="setPrompt('Fairytale cozy treehouse library at dusk with warm glowing lanterns')">🏡 Treehouse Library</span>
+        <span class="preset-chip" onclick="setPrompt('Futuristic electric supercar on a misty coastal cliff at sunset')">🏎️ Sunset Supercar</span>
+        <span class="preset-chip" onclick="setPrompt('Cute astronaut cat floating in a spaceship cockpit looking at Earth')">🐱 Space Cat</span>
+      </div>
+
+      <div class="form-group">
+        <label>Raw Idea / Concept</label>
+        <textarea id="rawPrompt" placeholder="Describe the scene you want to visualize...">Deadpool and Spider-Man standing together in a cyberpunk city</textarea>
+      </div>
+
+      <div class="style-row">
+        <div class="form-group">
+          <label>Target Art Style</label>
+          <select id="imageStyle" class="style-select">
+            <option value="Cinematic Photorealistic">🎬 Cinematic Photorealistic</option>
+            <option value="Cyberpunk Neon Glow">🌆 Cyberpunk & Neon Glow</option>
+            <option value="3D Pixar Animation">🧸 3D Pixar Animation</option>
+            <option value="Editorial Studio Photography">📸 Editorial Studio Photography</option>
+            <option value="Watercolor Art Illustration">🎨 Watercolor Illustration</option>
+            <option value="Anime Kyoto Animation Aesthetic">✨ Anime Masterpiece</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Target Image Engine</label>
+          <select id="targetEngine" class="style-select">
+            <option value="Midjourney v6">Midjourney v6</option>
+            <option value="Stable Diffusion / ComfyUI">Stable Diffusion / ComfyUI</option>
+            <option value="Flux Diffusion">Flux Diffusion</option>
+            <option value="DALL-E 3">DALL-E 3</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-enhance" id="btnEnhance" onclick="handleEnhance()">
+        <span>✨ Synthesize Master Prompt with Selected Model</span>
+      </button>
+    </div>
+
+    <!-- Right Panel: Enhanced Prompt Package -->
+    <div class="glass-card">
+      <div class="card-header">
+        <h2>📋 Production-Ready Prompt Package</h2>
+        <!-- Master Header Copy Buttons -->
+        <div id="headerCopyGroup" style="display: none; gap: 8px;">
+          <button class="copy-btn copy-all-btn" onclick="copyAllPromptPackage(this)" title="Copy Positive, Negative, Camera, Lighting, Ratio and Tags together in one click">
+            <span>📋 Copy All Details</span>
+          </button>
+          <button class="copy-btn" onclick="copyPromptAsImage(this)" title="Generates and copies a sleek PNG card graphic with all prompt details">
+            <span>🖼️ Copy as Image</span>
+          </button>
+          <button class="copy-btn" onclick="copyMidjourneyFormat(this)" title="Copy in ready-to-paste Midjourney syntax: prompt --ar ... --no ...">
+            <span>🚀 Midjourney Format</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">✨</div>
+        <h3>No prompt synthesized yet</h3>
+        <p>Type a raw concept or click a preset on the left, then click <strong>"Synthesize Master Prompt"</strong> to let your local Ollama model engineer a production-ready prompt.</p>
+      </div>
+
+      <div class="loading-spinner" id="loadingState">
+        <div class="spinner"></div>
+        <span id="loadingMessage">Selected Ollama model is engineering your prompt package...</span>
+      </div>
+
+      <div class="prompt-results" id="resultsState">
+        <!-- Master Quick Action Banner -->
+        <div class="master-action-banner">
+          <div class="banner-header-row">
+            <span class="banner-badge">⚡ PRODUCTION-READY PACKAGE GENERATED</span>
+            <span style="font-size: 11px; color: var(--text-dim);">One-click copy for Midjourney, Flux, SD & ComfyUI</span>
+          </div>
+          <div class="banner-actions">
+            <button class="btn-action-pill btn-action-primary" onclick="copyAllPromptPackage(this)" title="Copies Positive, Negative, Camera, Lighting, Ratio and Style Tags together in clean text format">
+              <span>📋 Copy Everything (Prompt + Camera + Lighting + All)</span>
+            </button>
+            <button class="btn-action-pill btn-action-image" onclick="copyPromptAsImage(this)" title="Generates and copies a sleek PNG card graphic with all prompt details">
+              <span>🖼️ Copy as Image Card</span>
+            </button>
+            <button class="btn-action-pill btn-action-secondary" onclick="copyMidjourneyFormat(this)" title="Copies in Midjourney syntax: prompt --ar ... --no ...">
+              <span>🚀 Midjourney Syntax</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Positive Prompt -->
+        <div class="prompt-box prompt-box-primary">
+          <div class="prompt-box-header">
+            <h4>✨ Master Positive Prompt (Paste into Midjourney / SD)</h4>
+            <button class="copy-btn" onclick="copyText('enhancedPositive', this, 'Positive Prompt')">📋 Copy Prompt</button>
+          </div>
+          <div class="prompt-text" id="enhancedPositive"></div>
+        </div>
+
+        <!-- Negative Prompt -->
+        <div class="prompt-box">
+          <div class="prompt-box-header">
+            <h4>🚫 Negative Prompt (Quality & Artifact Filter)</h4>
+            <button class="copy-btn" onclick="copyText('negativePrompt', this, 'Negative Prompt')">📋 Copy Negative</button>
+          </div>
+          <div class="prompt-text" id="negativePrompt"></div>
+        </div>
+
+        <!-- Breakdown Grid with individual copy buttons -->
+        <div class="meta-cards-grid">
+          <div class="meta-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <h5>💡 Lighting & Atmosphere</h5>
+              <button class="copy-btn" style="padding: 2px 8px; font-size: 11px;" onclick="copyText('lightingText', this, 'Lighting Details')">📋 Copy</button>
+            </div>
+            <p id="lightingText"></p>
+          </div>
+          <div class="meta-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <h5>📷 Camera & Composition</h5>
+              <button class="copy-btn" style="padding: 2px 8px; font-size: 11px;" onclick="copyText('cameraText', this, 'Camera & Composition')">📋 Copy</button>
+            </div>
+            <p id="cameraText"></p>
+          </div>
+          <div class="meta-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <h5>📐 Recommended Ratio</h5>
+              <button class="copy-btn" style="padding: 2px 8px; font-size: 11px;" onclick="copyText('aspectRatioText', this, 'Aspect Ratio')">📋 Copy</button>
+            </div>
+            <p id="aspectRatioText" style="font-weight: 700; color: #c084fc; font-size: 15px;">16:9</p>
+          </div>
+          <div class="meta-card">
+            <h5>🏷️ Style Keywords</h5>
+            <div class="tags-row" id="tagsContainer"></div>
+          </div>
+        </div>
+
+        <!-- Master Bottom Copy All Bar -->
+        <div class="master-bottom-actions">
+          <button class="btn-master-copy" onclick="copyAllPromptPackage(this)">
+            <span>📋 Copy Complete Prompt Package (Positive + Negative + Camera + Lighting + Ratio + Tags)</span>
+          </button>
+          <button class="btn-action-pill btn-action-image" style="padding: 13px 20px; font-size: 13px;" onclick="copyPromptAsImage(this)">
+            <span>🖼️ Copy as Image Card</span>
+          </button>
+        </div>
+
+        <div class="meta-footer">
+          <span id="modelTag">Model: qwen3-coder:30b</span>
+          <span id="timingMetric">⚡ Synthesized in 1.84s</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toastNotification" class="toast-notification"></div>
+
+  <script>
+    let currentPromptData = null;
+
+    function setPrompt(text) {
+      document.getElementById('rawPrompt').value = text;
+    }
+
+    async function loadModels() {
+      const select = document.getElementById('modelSelect');
+      const countBadge = document.getElementById('modelCountBadge');
+      const refreshIcon = document.getElementById('refreshIcon');
+      refreshIcon.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 600 });
+      countBadge.textContent = 'Scanning...';
+
+      try {
+        const res = await fetch('/api/v1/triage/models');
+        if (!res.ok) throw new Error('Host unreachable');
+        const data = await res.json();
+        
+        if (data.available_models && data.available_models.length > 0) {
+          const currentVal = select.value;
+          select.innerHTML = '';
+          data.available_models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.size_gb} GB)`;
+            select.appendChild(opt);
+          });
+          if ([...select.options].some(o => o.value === currentVal)) select.value = currentVal;
+          countBadge.textContent = `🟢 ${data.available_models.length} Online`;
+          countBadge.style.background = 'rgba(168, 85, 247, 0.2)';
+          countBadge.style.color = '#d8b4fe';
+        }
+      } catch (e) {
+        countBadge.textContent = 'Presets Active';
+      }
+    }
+    loadModels();
+
+    async function handleEnhance() {
+      const prompt = document.getElementById('rawPrompt').value.trim();
+      const style = document.getElementById('imageStyle').value;
+      const targetEngine = document.getElementById('targetEngine').value;
+      const model = document.getElementById('modelSelect').value || null;
+
+      if (!prompt) {
+        alert('Please enter a concept to enhance');
+        return;
+      }
+
+      const empty = document.getElementById('emptyState');
+      const loading = document.getElementById('loadingState');
+      const resultsState = document.getElementById('resultsState');
+      const headerCopyGroup = document.getElementById('headerCopyGroup');
+      const btn = document.getElementById('btnEnhance');
+      const loadMsg = document.getElementById('loadingMessage');
+
+      loadMsg.textContent = `Ollama model '${model}' is engineering your prompt package...`;
+      empty.style.display = 'none';
+      resultsState.style.display = 'none';
+      headerCopyGroup.style.display = 'none';
+      loading.style.display = 'flex';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/triage/enhance-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            raw_prompt: prompt,
+            style: style,
+            target_engine: targetEngine,
+            model: model
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Prompt enhancement failed');
+        }
+
+        const data = await res.json();
+        currentPromptData = data;
+
+        document.getElementById('enhancedPositive').textContent = data.enhanced_positive_prompt;
+        document.getElementById('negativePrompt').textContent = data.negative_prompt;
+        document.getElementById('lightingText').textContent = data.lighting_and_atmosphere;
+        document.getElementById('cameraText').textContent = data.camera_and_composition;
+        document.getElementById('aspectRatioText').textContent = data.suggested_aspect_ratio;
+        document.getElementById('modelTag').textContent = `Model: ${data.model_used}`;
+        document.getElementById('timingMetric').textContent = `⚡ Synthesized in ${data.processing_time_seconds}s`;
+
+        // Style tags
+        const tagsBox = document.getElementById('tagsContainer');
+        tagsBox.innerHTML = '';
+        (data.style_tags || []).forEach(t => {
+          const chip = document.createElement('span');
+          chip.className = 'tag-chip';
+          chip.textContent = `#${t}`;
+          tagsBox.appendChild(chip);
+        });
+
+        loading.style.display = 'none';
+        headerCopyGroup.style.display = 'flex';
+        resultsState.style.display = 'flex';
+      } catch (err) {
+        alert('Prompt Enhancement Error: ' + err.message);
+        loading.style.display = 'none';
+        empty.style.display = 'flex';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Toast Notification helper
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      if (!toast) return;
+      toast.innerHTML = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Copy Individual Text
+    function copyText(elementId, btn, label = 'Text') {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        showToast(`📋 ${label} copied to clipboard!`);
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+      });
+    }
+
+    // Copy ALL: Positive + Negative + Camera + Lighting + Ratio + Tags
+    function copyAllPromptPackage(btn) {
+      if (!currentPromptData) {
+        showToast('⚠️ Please synthesize a prompt first');
+        return;
+      }
+      const tagsStr = (currentPromptData.style_tags || []).map(t => `#${t}`).join(' ');
+      
+      const fullPackage = 
+`✨ MASTER POSITIVE PROMPT:
+${currentPromptData.enhanced_positive_prompt}
+
+🚫 NEGATIVE PROMPT:
+${currentPromptData.negative_prompt}
+
+📷 CAMERA & COMPOSITION:
+${currentPromptData.camera_and_composition}
+
+💡 LIGHTING & ATMOSPHERE:
+${currentPromptData.lighting_and_atmosphere}
+
+📐 RECOMMENDED ASPECT RATIO:
+${currentPromptData.suggested_aspect_ratio}
+
+🏷️ STYLE TAGS:
+${tagsStr}
+
+🤖 SYNTHESIZED BY: ${currentPromptData.model_used}`;
+
+      navigator.clipboard.writeText(fullPackage).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ All Copied!';
+        showToast('📋 Complete prompt package copied to clipboard (Positive + Negative + Camera + Lighting + All)!');
+        setTimeout(() => { btn.innerHTML = orig; }, 2500);
+      });
+    }
+
+    // Copy in Midjourney Syntax format
+    function copyMidjourneyFormat(btn) {
+      if (!currentPromptData) {
+        showToast('⚠️ Please synthesize a prompt first');
+        return;
+      }
+      const cleanNegative = (currentPromptData.negative_prompt || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+      const mjSyntax = `${currentPromptData.enhanced_positive_prompt} --ar ${currentPromptData.suggested_aspect_ratio} --no ${cleanNegative}`;
+      
+      navigator.clipboard.writeText(mjSyntax).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Midjourney Copied!';
+        showToast('🚀 Ready-to-paste Midjourney syntax copied (--ar & --no formatted)!');
+        setTimeout(() => { btn.innerHTML = orig; }, 2500);
+      });
+    }
+
+    // Copy Prompt Details as High-Resolution Visual Image Card
+    async function copyPromptAsImage(btn) {
+      if (!currentPromptData) {
+        showToast('⚠️ Please synthesize a prompt first');
+        return;
+      }
+      const orig = btn.innerHTML;
+      btn.innerHTML = '⏳ Rendering Image...';
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200;
+        canvas.height = 1420;
+        const ctx = canvas.getContext('2d');
+
+        // Dark gradient background
+        const bg = ctx.createLinearGradient(0, 0, 1200, 1420);
+        bg.addColorStop(0, '#0b0f19');
+        bg.addColorStop(0.5, '#160e29');
+        bg.addColorStop(1, '#0f172a');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, 1200, 1420);
+
+        // Ambient glow circle
+        const glow = ctx.createRadialGradient(200, 150, 20, 200, 150, 400);
+        glow.addColorStop(0, 'rgba(168, 85, 247, 0.25)');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, 1200, 1420);
+
+        // Border
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(20, 20, 1160, 1380);
+
+        // Brand Title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px Inter, system-ui, sans-serif';
+        ctx.fillText('✨ NexusAI Prompt Studio', 60, 85);
+
+        ctx.fillStyle = '#c084fc';
+        ctx.font = '600 18px Inter, system-ui, sans-serif';
+        ctx.fillText(`MODEL: ${currentPromptData.model_used.toUpperCase()}  •  RATIO: ${currentPromptData.suggested_aspect_ratio}`, 60, 122);
+
+        // Helper to wrap text
+        function drawWrappedText(text, x, y, maxWidth, lineHeight, maxLines = 8) {
+          const words = (text || '').split(' ');
+          let line = '';
+          let currentY = y;
+          let count = 0;
+          for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && n > 0) {
+              ctx.fillText(line, x, currentY);
+              line = words[n] + ' ';
+              currentY += lineHeight;
+              count++;
+              if (count >= maxLines) {
+                ctx.fillText(line.trim() + '...', x, currentY);
+                return currentY + lineHeight;
+              }
+            } else {
+              line = testLine;
+            }
+          }
+          ctx.fillText(line, x, currentY);
+          return currentY + lineHeight;
+        }
+
+        let currY = 160;
+
+        // Positive Prompt Box
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
+        ctx.fillRect(50, currY, 1100, 300);
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+        ctx.strokeRect(50, currY, 1100, 300);
+
+        ctx.fillStyle = '#e9d5ff';
+        ctx.font = 'bold 20px Inter, system-ui, sans-serif';
+        ctx.fillText('✨ MASTER POSITIVE PROMPT', 75, currY + 42);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '18px "Courier New", monospace';
+        drawWrappedText(currentPromptData.enhanced_positive_prompt, 75, currY + 80, 1050, 27, 8);
+        currY += 325;
+
+        // Negative Prompt Box
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+        ctx.fillRect(50, currY, 1100, 200);
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.strokeRect(50, currY, 1100, 200);
+
+        ctx.fillStyle = '#fca5a5';
+        ctx.font = 'bold 20px Inter, system-ui, sans-serif';
+        ctx.fillText('🚫 NEGATIVE PROMPT (QUALITY & ARTIFACT FILTER)', 75, currY + 40);
+
+        ctx.fillStyle = '#fecaca';
+        ctx.font = '17px "Courier New", monospace';
+        drawWrappedText(currentPromptData.negative_prompt, 75, currY + 76, 1050, 25, 4);
+        currY += 225;
+
+        // Camera & Composition Box
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+        ctx.fillRect(50, currY, 1100, 175);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+        ctx.strokeRect(50, currY, 1100, 175);
+
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = 'bold 20px Inter, system-ui, sans-serif';
+        ctx.fillText('📷 CAMERA & COMPOSITION', 75, currY + 38);
+
+        ctx.fillStyle = '#e0f2fe';
+        ctx.font = '17px "Courier New", monospace';
+        drawWrappedText(currentPromptData.camera_and_composition, 75, currY + 74, 1050, 25, 3);
+        currY += 200;
+
+        // Lighting & Atmosphere Box
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.08)';
+        ctx.fillRect(50, currY, 1100, 175);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+        ctx.strokeRect(50, currY, 1100, 175);
+
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 20px Inter, system-ui, sans-serif';
+        ctx.fillText('💡 LIGHTING & ATMOSPHERE', 75, currY + 38);
+
+        ctx.fillStyle = '#fef3c7';
+        ctx.font = '17px "Courier New", monospace';
+        drawWrappedText(currentPromptData.lighting_and_atmosphere, 75, currY + 74, 1050, 25, 3);
+        currY += 200;
+
+        // Footer Metadata & Tags
+        const tags = (currentPromptData.style_tags || []).map(t => '#' + t).join('  ');
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '16px Inter, system-ui, sans-serif';
+        ctx.fillText(`🏷️ TAGS: ${tags}`, 60, currY + 30);
+        ctx.fillText(`📐 ASPECT RATIO: ${currentPromptData.suggested_aspect_ratio}  |  🚀 100% PRIVATE LOCAL OLLAMA INFERENCE`, 60, currY + 65);
+
+        // Export to clipboard or file
+        canvas.toBlob(async (blob) => {
+          try {
+            if (navigator.clipboard && window.ClipboardItem) {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+              btn.innerHTML = '✅ Image Copied!';
+              showToast('🖼️ Complete Prompt Package image copied to clipboard!');
+            } else {
+              throw new Error('ClipboardItem not supported');
+            }
+          } catch (clipErr) {
+            const a = document.createElement('a');
+            a.download = `nexusai-prompt-${Date.now()}.png`;
+            a.href = URL.createObjectURL(blob);
+            a.click();
+            btn.innerHTML = '📥 Image Saved!';
+            showToast('📥 Image Card saved as PNG download!');
+          }
+          setTimeout(() => { btn.innerHTML = orig; }, 2500);
+        }, 'image/png');
+      } catch (err) {
+        console.error(err);
+        btn.innerHTML = '⚠️ Export Error';
+        showToast('⚠️ Could not export image card: ' + err.message);
+        setTimeout(() => { btn.innerHTML = orig; }, 2500);
+      }
+    }
+  </script>
+</body>
+</html>
