@@ -4,17 +4,30 @@ from fastapi.responses import RedirectResponse
 from app.api.router import api_router
 from app.config import settings
 
+tags_metadata = [
+    {
+        "name": "Items",
+        "description": "Standard CRUD operations for catalog item management.",
+    },
+    {
+        "name": "Health",
+        "description": "System health and status monitoring endpoints.",
+    },
+]
+
 # Initialize FastAPI with full Swagger (OpenAPI) configuration
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
+    description="### 🚀 Standard Python REST API & CRUD Operations",
+    openapi_tags=tags_metadata,
     docs_url="/docs",          # Swagger UI endpoint
     redoc_url="/redoc",        # ReDoc alternative documentation
     swagger_ui_parameters={
-        "defaultModelsExpandDepth": 2,  # Expand Pydantic schemas in docs
-        "docExpansion": "list",         # Automatically expand endpoint groups
-        "filter": True,                 # Search/filter box inside Swagger
-        "tryItOutEnabled": True,        # Pre-activate 'Try it out' button
+        "defaultModelsExpandDepth": 2,
+        "docExpansion": "list",
+        "filter": True,
+        "tryItOutEnabled": True,
         "syntaxHighlight.theme": "monokai",
     },
 )
