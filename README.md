@@ -94,3 +94,5 @@ curl -X DELETE "http://127.0.0.1:8000/api/v1/items/1"
 ```bash
 pytest
 ```
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
