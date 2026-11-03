@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     # PostgreSQL Connection String (e.g. Neon Serverless Postgres)
     DATABASE_URL: str = "postgresql://neondb_owner:npg_KlWx35zAZwBq@ep-misty-band-b6fdcpb1-pooler.c-2.sa-east-1.aws.neon.tech/Python%20Fast%20api?sslmode=require&channel_binding=require"
 
+    # OpenRouter AI & RAG Configuration
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_CHAT_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+    OPENROUTER_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSION: int = 1536
+
     @computed_field
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
