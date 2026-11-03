@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.crud.crud_item import crud_item
 from app.db.session import get_db
 from app.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from app.schemas.pricing import PriceBreakdownResponse, QuoteRequest
+from app.services.pricing_service import pricing_service
 
 router = APIRouter()
 
@@ -180,3 +182,31 @@ def delete_item(
             detail=f"Item with ID {item_id} not found",
         )
     return None
+
+
+# ---------------------------------------------------------------------------
+# 7. BUSINESS LOGIC (POST /api/v1/items/{item_id}/quote)
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{item_id}/quote",
+    response_model=PriceBreakdownResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Calculate order quote & discount (Business Logic)",
+    description="Calculates gross total, applies promotional & bulk discounts, computes sales tax, and returns a detailed price breakdown.",
+)
+def calculate_item_quote(
+    item_id: int,
+    quote_in: QuoteRequest,
+    db: Session = Depends(get_db),
+) -> PriceBreakdownResponse:
+    """
+    Business Logic Endpoint:
+    - Presentation layer: receives HTTP request, parses JSON via Pydantic.
+    - Delegates domain rules & calculations to PricingService.
+    """
+    return pricing_service.calculate_item_quote(
+        db=db,
+        item_id=item_id,
+        quote_in=quote_in,
+    )
+
