@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -43,11 +43,11 @@ class DocumentCreate(BaseModel):
 
 class DocumentResponse(BaseModel):
     """Response returned after a document has been successfully chunked and embedded."""
-    id: int
+    id: Union[int, str]
     title: str
     source: Optional[str]
     total_chunks: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,7 +73,7 @@ class RAGQueryRequest(BaseModel):
         default=True,
         description="Whether to use Hybrid Search (Dense Vector + Keyword BM25) for retrieval",
     )
-    document_ids: Optional[List[int]] = Field(
+    document_ids: Optional[List[Union[int, str]]] = Field(
         default=None,
         description="Optional filter: restrict search to specific document IDs",
     )
@@ -81,8 +81,8 @@ class RAGQueryRequest(BaseModel):
 
 class CitationChunk(BaseModel):
     """Source reference chunk proving where the LLM got its information."""
-    chunk_id: int
-    document_id: int
+    chunk_id: Union[int, str]
+    document_id: Union[int, str]
     document_title: str
     content: str
     similarity_score: float = Field(

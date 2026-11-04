@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,17 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 def root():
     """Redirect root path directly to interactive Swagger API documentation."""
     return RedirectResponse(url="/docs")
+
+
+@app.get("/rag-ui", response_class=HTMLResponse, include_in_schema=False)
+def rag_ui():
+    """Interactive Real-Time RAG Playground UI."""
+    from pathlib import Path
+    ui_path = Path(__file__).parent / "static" / "rag_playground.html"
+    if ui_path.exists():
+        return HTMLResponse(content=ui_path.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>RAG UI file not found.</h1>", status_code=404)
+
 
 
 @app.get(

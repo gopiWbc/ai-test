@@ -1,20 +1,20 @@
 """
-RAG Orchestration & Domain Service.
+RAG Orchestration & Domain Service using ChromaDB.
 
 Coordinates:
-1. Ingestion: Document chunking, batch vector embedding, and persistence in PostgreSQL pgvector.
-2. Retrieval: Hybrid Search combining Dense Cosine Similarity with Keyword BM25 using Reciprocal Rank Fusion.
+1. Ingestion: Document chunking, batch vector embedding, and persistence in ChromaDB.
+2. Retrieval: Hybrid Search combining ChromaDB Dense Cosine HNSW Similarity with Keyword Matching via Reciprocal Rank Fusion.
 3. Generation: Grounded prompt synthesis with strict anti-hallucination guardrails and source citations.
 4. Streaming: Real-time token streaming via Server-Sent Events (SSE).
 """
+from datetime import datetime
 import json
-from typing import Generator, List, Optional
+from typing import Generator, List, Optional, Union
+import uuid
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
-from app.models.document import Document, DocumentChunk
+from app.db.chroma import chroma_store
 from app.schemas.rag import (
     CitationChunk,
     DocumentCreate,
@@ -31,13 +31,12 @@ class RAGService:
     # -----------------------------------------------------------------------
     # 1. DOCUMENT INGESTION
     # -----------------------------------------------------------------------
-    def ingest_document(self, db: Session, doc_in: DocumentCreate) -> DocumentResponse:
+    def ingest_document(self, doc_in: DocumentCreate) -> DocumentResponse:
         """
-        Ingests a document into the knowledge base:
-        1. Creates parent Document entity.
-        2. Chunks raw text using recursive separator splitting with overlap.
-        3. Generates 1536-dimensional embeddings for each chunk via OpenRouter.
-        4. Saves chunks into PostgreSQL with pgvector cosine indexes.
+        Ingests a document into ChromaDB:
+        1. Chunks raw text using recursive separator splitting with overlap.
+        2. Generates 1536-dimensional embeddings for each chunk via OpenRouter.
+        3. Persists chunks and embeddings into ChromaDB collection.
         """
         # Step 1: Chunk text
         text_chunks = recursive_chunk_text(
@@ -52,16 +51,9 @@ class RAGService:
                 detail="Document content produced 0 valid chunks after processing.",
             )
 
-        # Step 2: Create Parent Document in DB
-        doc = Document(
-            title=doc_in.title.strip(),
-            source=doc_in.source.strip() if doc_in.source else None,
-            total_chunks=len(text_chunks),
-        )
-        db.add(doc)
-        db.flush()  # Flush to generate doc.id for foreign keys
+        doc_id = str(uuid.uuid4())[:8]
 
-        # Step 3: Generate Vector Embeddings in batches
+        # Step 2: Generate Vector Embeddings in batches
         BATCH_SIZE = 16
         all_embeddings: List[List[float]] = []
         for i in range(0, len(text_chunks), BATCH_SIZE):
@@ -69,95 +61,93 @@ class RAGService:
             batch_vectors = openrouter_client.generate_embeddings(batch)
             all_embeddings.extend(batch_vectors)
 
-        # Step 4: Persist DocumentChunk entities with vector embeddings
-        for idx, (chunk_text, vector) in enumerate(zip(text_chunks, all_embeddings)):
-            chunk = DocumentChunk(
-                document_id=doc.id,
-                chunk_index=idx,
-                content=chunk_text,
-                token_count=len(chunk_text.split()),
-                embedding=vector,
-            )
-            db.add(chunk)
+        # Step 3: Persist into ChromaDB
+        chroma_store.add_document_chunks(
+            doc_id=doc_id,
+            title=doc_in.title.strip(),
+            chunks=text_chunks,
+            embeddings=all_embeddings,
+            source=doc_in.source.strip() if doc_in.source else None,
+        )
 
-        db.commit()
-        db.refresh(doc)
-        return DocumentResponse.model_validate(doc)
+        return DocumentResponse(
+            id=doc_id,
+            title=doc_in.title.strip(),
+            source=doc_in.source.strip() if doc_in.source else None,
+            total_chunks=len(text_chunks),
+            created_at=datetime.utcnow(),
+        )
 
     # -----------------------------------------------------------------------
     # 2. HYBRID RETRIEVAL & FUSION
     # -----------------------------------------------------------------------
     def retrieve_relevant_chunks(
         self,
-        db: Session,
         query: str,
         top_k: int = 4,
         enable_hybrid: bool = True,
-        document_ids: Optional[List[int]] = None,
+        document_ids: Optional[List[Union[int, str]]] = None,
     ) -> List[CitationChunk]:
         """
-        Executes hybrid retrieval:
-        1. Dense Retrieval: Computes query vector and runs pgvector cosine distance query.
-        2. Sparse Retrieval: Performs full-text / keyword matching across chunks.
-        3. Fuses both ranked lists using Reciprocal Rank Fusion (RRF).
+        Executes retrieval using ChromaDB:
+        1. Dense Retrieval: Computes query vector and runs ChromaDB HNSW cosine query.
+        2. Sparse/Keyword Re-ranking: Re-ranks candidates matching keyword frequencies.
+        3. Returns formatted source citation chunks.
         """
-        # Step 1: Generate dense vector for the user query
+        # Step 1: Generate dense vector for user query
         query_vector = openrouter_client.generate_single_embedding(query)
 
-        # Step 2: Dense pgvector search (Cosine Distance: 0 = identical, 2 = opposite)
-        # In pgvector: cosine_distance = 1 - cosine_similarity
-        distance_col = DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
-        dense_query = (
-            db.query(DocumentChunk, distance_col)
-            .join(Document, Document.id == DocumentChunk.document_id)
-            .options(joinedload(DocumentChunk.document))
-        )
+        # Step 2: Metadata filter (optional document scoping)
+        where_filter = None
         if document_ids:
-            dense_query = dense_query.filter(DocumentChunk.document_id.in_(document_ids))
+            str_ids = [str(d) for d in document_ids]
+            if len(str_ids) == 1:
+                where_filter = {"doc_id": str_ids[0]}
+            else:
+                where_filter = {"doc_id": {"$in": str_ids}}
 
-        # Retrieve top candidates for re-ranking
-        dense_results = dense_query.order_by(distance_col.asc()).limit(top_k * 3).all()
-        dense_chunks = [chunk for chunk, _ in dense_results]
+        # Step 3: Query ChromaDB for top candidates
+        candidate_k = top_k * 3 if enable_hybrid else top_k
+        dense_results = chroma_store.query(
+            query_embedding=query_vector,
+            top_k=candidate_k,
+            where_filter=where_filter,
+        )
 
-        # Step 3: Sparse / Keyword search (if hybrid enabled)
-        sparse_chunks: List[DocumentChunk] = []
+        if not dense_results:
+            return []
+
+        # Step 4: Hybrid Re-ranking (if enabled)
         if enable_hybrid:
-            keywords = [w.strip() for w in query.split() if len(w.strip()) > 3]
+            keywords = [w.strip().lower() for w in query.split() if len(w.strip()) > 3]
             if keywords:
-                keyword_filters = [DocumentChunk.content.ilike(f"%{kw}%") for kw in keywords[:5]]
-                sparse_query = (
-                    db.query(DocumentChunk)
-                    .join(Document, Document.id == DocumentChunk.document_id)
-                    .options(joinedload(DocumentChunk.document))
-                    .filter(or_(*keyword_filters))
+                # Rank candidates by keyword hits
+                sparse_ranked = sorted(
+                    dense_results,
+                    key=lambda r: sum(1 for kw in keywords if kw in r["content"].lower()),
+                    reverse=True,
                 )
-                if document_ids:
-                    sparse_query = sparse_query.filter(DocumentChunk.document_id.in_(document_ids))
-                sparse_chunks = sparse_query.limit(top_k * 3).all()
-
-        # Step 4: Merge results via Reciprocal Rank Fusion (RRF)
-        if enable_hybrid and sparse_chunks:
-            fused_results = reciprocal_rank_fusion(
-                ranked_lists=[dense_chunks, sparse_chunks],
-                k=60,
-                id_getter=lambda c: c.id,
-            )
-            selected_items = fused_results[:top_k]
+                fused = reciprocal_rank_fusion(
+                    ranked_lists=[dense_results, sparse_ranked],
+                    k=60,
+                    id_getter=lambda x: x["chunk_id"],
+                )
+                selected_items = [item for item, _ in fused[:top_k]]
+            else:
+                selected_items = dense_results[:top_k]
         else:
-            # Fall back to dense vector distance rankings
-            selected_items = [(chunk, 1.0 / (1.0 + dist)) for chunk, dist in dense_results[:top_k]]
+            selected_items = dense_results[:top_k]
 
         # Step 5: Format structured citation references
         citations: List[CitationChunk] = []
-        for chunk, score in selected_items:
-            doc_title = chunk.document.title if chunk.document else "Unknown Document"
+        for item in selected_items:
             citations.append(
                 CitationChunk(
-                    chunk_id=chunk.id,
-                    document_id=chunk.document_id,
-                    document_title=doc_title,
-                    content=chunk.content,
-                    similarity_score=round(score, 4),
+                    chunk_id=item["chunk_id"],
+                    document_id=item["doc_id"],
+                    document_title=item["doc_title"],
+                    content=item["content"],
+                    similarity_score=item["similarity_score"],
                 )
             )
 
@@ -194,12 +184,11 @@ class RAGService:
             {"role": "user", "content": user_content},
         ]
 
-    def answer_query(self, db: Session, query_in: RAGQueryRequest) -> RAGQueryResponse:
+    def answer_query(self, query_in: RAGQueryRequest) -> RAGQueryResponse:
         """
         Standard Non-Streaming RAG response generation.
         """
         citations = self.retrieve_relevant_chunks(
-            db=db,
             query=query_in.query,
             top_k=query_in.top_k,
             enable_hybrid=query_in.enable_hybrid,
@@ -230,24 +219,19 @@ class RAGService:
     # 4. STREAMING GENERATION (SERVER-SENT EVENTS)
     # -----------------------------------------------------------------------
     def stream_answer_query(
-        self, db: Session, query_in: RAGQueryRequest
+        self, query_in: RAGQueryRequest
     ) -> Generator[str, None, None]:
         """
         Streams RAG tokens in real-time as Server-Sent Events (SSE).
-        Emits:
-        1. 'citations' metadata event with retrieved chunk references.
-        2. 'token' events containing LLM output chunks.
-        3. '[DONE]' event on completion.
         """
         citations = self.retrieve_relevant_chunks(
-            db=db,
             query=query_in.query,
             top_k=query_in.top_k,
             enable_hybrid=query_in.enable_hybrid,
             document_ids=query_in.document_ids,
         )
 
-        # 1. Emit retrieved citations first so the client UI can render sources immediately
+        # 1. Emit retrieved citations first
         citations_data = [c.model_dump() for c in citations]
         yield f"data: {json.dumps({'event': 'citations', 'data': citations_data})}\n\n"
 
@@ -262,6 +246,23 @@ class RAGService:
         for sse_event in openrouter_client.stream_chat_completion(messages=messages):
             yield sse_event
 
+    # -----------------------------------------------------------------------
+    # 5. DOCUMENT MANAGEMENT
+    # -----------------------------------------------------------------------
+    def list_documents(self) -> List[DocumentResponse]:
+        docs = chroma_store.list_documents()
+        return [
+            DocumentResponse(
+                id=d["doc_id"],
+                title=d["title"],
+                source=d.get("source"),
+                total_chunks=d["total_chunks"],
+            )
+            for d in docs
+        ]
+
+    def delete_document(self, doc_id: str) -> None:
+        chroma_store.delete_document(doc_id)
+
 
 rag_service = RAGService()
-

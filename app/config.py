@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     OPENROUTER_EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSION: int = 1536
 
+    # ChromaDB Configuration
+    CHROMA_PERSIST_DIRECTORY: str = "./chroma_db"
+    CHROMA_COLLECTION_NAME: str = "rag_knowledge_base"
+
     @computed_field
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:

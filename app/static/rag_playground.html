@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Real-Time Playground</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .cursor-blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6 min-h-screen">
+  <div class="max-w-6xl mx-auto space-y-6">
+    
+    <!-- Top Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[var(--border)] gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+          <h1 class="text-xl md:text-2xl font-bold tracking-tight">FastAPI + ChromaDB RAG Playground</h1>
+        </div>
+        <p class="text-sm text-[var(--muted-foreground)] mt-1">
+          Real-time ingestion, hybrid vector search via ChromaDB HNSW, and live SSE token streaming.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-[var(--muted-foreground)] font-mono">Backend:</label>
+        <input id="apiBase" type="text" value="http://localhost:8000" 
+               class="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs font-mono w-48 focus:ring-1 focus:ring-[var(--primary)] outline-none" />
+        <button onclick="checkHealth()" class="px-3 py-1.5 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-lg text-xs font-medium transition">
+          Ping
+        </button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Left Column: Ingestion & Knowledge Base (5 cols) -->
+      <section class="lg:col-span-5 space-y-6">
+        
+        <!-- Document Upload Card -->
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-base flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              Ingest Document to ChromaDB
+            </h2>
+            <button onclick="fillSampleDoc()" class="text-xs text-emerald-600 hover:underline">Insert Sample</button>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-medium mb-1 text-[var(--muted-foreground)]">Document Title</label>
+              <input id="docTitle" type="text" placeholder="e.g. Neon Architecture Guide"
+                     class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg p-2 outline-none focus:border-[var(--primary)] text-sm" />
+            </div>
+
+            <div>
+              <label class="block font-medium mb-1 text-[var(--muted-foreground)]">Source Identifier (optional)</label>
+              <input id="docSource" type="text" placeholder="e.g. docs/architecture.pdf"
+                     class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg p-2 outline-none focus:border-[var(--primary)]" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block font-medium mb-1 text-[var(--muted-foreground)]">Chunk Size (chars)</label>
+                <input id="chunkSize" type="number" value="450" min="100" max="2000"
+                       class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg p-2 outline-none" />
+              </div>
+              <div>
+                <label class="block font-medium mb-1 text-[var(--muted-foreground)]">Overlap (chars)</label>
+                <input id="chunkOverlap" type="number" value="80" min="0" max="400"
+                       class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg p-2 outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-medium mb-1 text-[var(--muted-foreground)]">Content</label>
+              <textarea id="docContent" rows="6" placeholder="Paste knowledge text here to be chunked and embedded..."
+                        class="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg p-2.5 outline-none font-sans text-xs focus:border-[var(--primary)]"></textarea>
+            </div>
+
+            <button id="btnIngest" onclick="ingestDocument()"
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg text-xs transition flex items-center justify-center gap-2">
+              <span>Compute Embeddings & Index in PostgreSQL</span>
+            </button>
+            <div id="ingestStatus" class="hidden text-xs p-2.5 rounded-lg border"></div>
+          </div>
+        </div>
+
+        <!-- Indexed Documents List -->
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-sm">Indexed Documents in DB</h3>
+            <button onclick="loadDocuments()" class="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Refresh</button>
+          </div>
+          <div id="docList" class="space-y-2 text-xs max-h-56 overflow-y-auto pr-1">
+            <div class="text-[var(--muted-foreground)] text-center py-4">Click Refresh to load documents...</div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Real-Time RAG Chat (7 cols) -->
+      <section class="lg:col-span-7 space-y-6">
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4">
+          
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-base flex items-center gap-2">
+              <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+              RAG Query & Live Streaming
+            </h2>
+            <span id="timingBadge" class="hidden px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded text-[11px] font-mono"></span>
+          </div>
+
+          <!-- Configuration Controls -->
+          <div class="flex flex-wrap items-center gap-4 text-xs bg-[var(--background)] p-3 rounded-lg border border-[var(--border)]">
+            <div class="flex items-center gap-2">
+              <label class="text-[var(--muted-foreground)]">Top-K Chunks:</label>
+              <select id="topK" class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none">
+                <option value="2">2 chunks</option>
+                <option value="3" selected>3 chunks</option>
+                <option value="4">4 chunks</option>
+                <option value="6">6 chunks</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input id="enableHybrid" type="checkbox" checked class="rounded border-[var(--border)]" />
+              <label for="enableHybrid" class="cursor-pointer">Hybrid Search (Dense + BM25)</label>
+            </div>
+          </div>
+
+          <!-- Quick Prompts -->
+          <div class="space-y-1">
+            <span class="text-[11px] text-[var(--muted-foreground)]">Quick sample queries:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="setQuery('How does database branching work in Neon?')" 
+                      class="text-xs px-2.5 py-1 bg-[var(--background)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-full transition">
+                Branching in Neon
+              </button>
+              <button onclick="setQuery('What algorithm do Safekeepers use for consensus?')" 
+                      class="text-xs px-2.5 py-1 bg-[var(--background)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-full transition">
+                Safekeepers & Paxos
+              </button>
+              <button onclick="setQuery('What is the company vacation policy for employees?')" 
+                      class="text-xs px-2.5 py-1 bg-[var(--background)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-full transition text-amber-600">
+                Test Out-of-Bounds (Hallucination check)
+              </button>
+            </div>
+          </div>
+
+          <!-- Query Input -->
+          <div class="flex gap-2">
+            <input id="ragQuery" type="text" placeholder="Ask a question grounded in your documents..."
+                   onkeydown="if(event.key === 'Enter') streamQuery()"
+                   class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500" />
+            <button id="btnAsk" onclick="streamQuery()"
+                    class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-xs transition flex items-center gap-2">
+              <span>Stream Answer</span>
+            </button>
+          </div>
+
+          <!-- Live Output Stream Box -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+              <span class="font-medium">Model Response (Llama 3.3 70B via OpenRouter):</span>
+              <button onclick="clearOutput()" class="hover:underline">Clear</button>
+            </div>
+            
+            <div id="outputBox" class="min-h-[140px] max-h-[350px] overflow-y-auto p-4 bg-[var(--background)] border border-[var(--border)] rounded-xl font-sans text-sm leading-relaxed whitespace-pre-wrap select-text">
+              <span class="text-[var(--muted-foreground)] italic">Ask a question above to see live token generation...</span>
+            </div>
+          </div>
+
+          <!-- Citations & Sources Box -->
+          <div id="citationsSection" class="hidden space-y-2 pt-2 border-t border-[var(--border)]">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Verifiable Source Citations (Retrieved Chunks)
+              </span>
+              <span id="citationCount" class="text-[11px] text-[var(--muted-foreground)]"></span>
+            </div>
+            <div id="citationCards" class="space-y-2 text-xs"></div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    function getApiBase() {
+      return document.getElementById('apiBase').value.replace(/\/$/, '');
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${getApiBase()}/health`);
+        const data = await res.json();
+        alert(`API Status: ${data.status}\nDatabase: ${data.database.status}\nService: ${data.service}`);
+        loadDocuments();
+      } catch (err) {
+        alert(`Failed to connect to ${getApiBase()}: ${err.message}`);
+      }
+    }
+
+    function setQuery(text) {
+      document.getElementById('ragQuery').value = text;
+    }
+
+    function fillSampleDoc() {
+      document.getElementById('docTitle').value = 'Neon Architecture & Serverless Internals';
+      document.getElementById('docSource').value = 'neon_whitepaper.md';
+      document.getElementById('docContent').value = 
+`Neon is a serverless, multi-tenant database platform built on top of PostgreSQL.
+It introduces architectural disaggregation between compute and storage layers.
+
+1. Compute Layer:
+Postgres compute instances run in lightweight containers on Kubernetes and can pause automatically when idle to eliminate compute cost.
+When new queries arrive, compute resumes in under 500 milliseconds.
+
+2. Storage Layer:
+The distributed storage engine consists of two core components: Safekeepers and Pageservers.
+Safekeepers form a consensus quorum using the Paxos consensus algorithm to safely store incoming Write-Ahead Logs (WAL).
+Pageservers maintain recent page versions in local NVMe cache and asynchronously ship immutable layers to AWS S3 storage.
+
+3. Database Branching:
+Neon enables instantaneous database branching using Copy-on-Write (CoW) metadata manipulation.
+A developer can branch a 10TB database in less than 2 seconds without copying a single byte of table data.`;
+    }
+
+    async function ingestDocument() {
+      const btn = document.getElementById('btnIngest');
+      const statusDiv = document.getElementById('ingestStatus');
+      const title = document.getElementById('docTitle').value.trim();
+      const content = document.getElementById('docContent').value.trim();
+      const source = document.getElementById('docSource').value.trim();
+      const chunkSize = parseInt(document.getElementById('chunkSize').value, 10);
+      const chunkOverlap = parseInt(document.getElementById('chunkOverlap').value, 10);
+
+      if (!title || !content) {
+        alert('Please provide both Title and Content');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Embedding & Indexing...`;
+      statusDiv.classList.remove('hidden', 'bg-red-100', 'bg-emerald-100', 'text-red-700', 'text-emerald-700');
+
+      try {
+        const res = await fetch(`${getApiBase()}/api/v1/rag/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            content,
+            source: source || null,
+            chunk_size: chunkSize,
+            chunk_overlap: chunkOverlap
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ingestion failed');
+
+        statusDiv.className = 'text-xs p-2.5 rounded-lg border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300';
+        statusDiv.innerHTML = `✓ Ingested <strong>${data.title}</strong> (ID: ${data.id}) with <strong>${data.total_chunks}</strong> vector chunks!`;
+        statusDiv.classList.remove('hidden');
+        loadDocuments();
+      } catch (err) {
+        statusDiv.className = 'text-xs p-2.5 rounded-lg border bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-300';
+        statusDiv.textContent = `Error: ${err.message}`;
+        statusDiv.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Compute Embeddings & Index in PostgreSQL</span>`;
+      }
+    }
+
+    async function loadDocuments() {
+      const container = document.getElementById('docList');
+      try {
+        const res = await fetch(`${getApiBase()}/api/v1/rag/documents?limit=20`);
+        const docs = await res.json();
+        if (!docs.length) {
+          container.innerHTML = `<div class="text-[var(--muted-foreground)] text-center py-4">No documents indexed yet. Use form above to add one.</div>`;
+          return;
+        }
+
+        container.innerHTML = docs.map(d => `
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+            <div>
+              <div class="font-medium text-[var(--foreground)]">${d.title}</div>
+              <div class="text-[11px] text-[var(--muted-foreground)]">ID: ${d.id} • Chunks: ${d.total_chunks} • ${d.source || 'No source'}</div>
+            </div>
+            <button onclick="deleteDoc(${d.id})" class="text-red-500 hover:text-red-700 p-1 text-xs">Delete</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="text-red-500 py-2">Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    async function deleteDoc(id) {
+      if (!confirm(`Delete document #${id} and all its ChromaDB embeddings?`)) return;
+      try {
+        await fetch(`${getApiBase()}/api/v1/rag/documents/${id}`, { method: 'DELETE' });
+        loadDocuments();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function clearOutput() {
+      document.getElementById('outputBox').innerHTML = `<span class="text-[var(--muted-foreground)] italic">Ask a question above to see live token generation...</span>`;
+      document.getElementById('citationsSection').classList.add('hidden');
+      document.getElementById('timingBadge').classList.add('hidden');
+    }
+
+    async function streamQuery() {
+      const query = document.getElementById('ragQuery').value.trim();
+      if (!query) return;
+
+      const topK = parseInt(document.getElementById('topK').value, 10);
+      const enableHybrid = document.getElementById('enableHybrid').checked;
+      const outputBox = document.getElementById('outputBox');
+      const citationsSection = document.getElementById('citationsSection');
+      const citationCards = document.getElementById('citationCards');
+      const timingBadge = document.getElementById('timingBadge');
+      const btn = document.getElementById('btnAsk');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>`;
+      outputBox.innerHTML = `<span class="text-indigo-500 font-mono text-xs">Retrieving hybrid chunks & connecting to OpenRouter...</span><span class="inline-block w-2 h-4 bg-indigo-500 ml-1 cursor-blink"></span>`;
+      citationsSection.classList.add('hidden');
+      timingBadge.classList.remove('hidden');
+      timingBadge.textContent = 'Searching...';
+
+      const startTime = performance.now();
+      let hasReceivedFirstToken = false;
+      let streamedText = '';
+
+      try {
+        const response = await fetch(`${getApiBase()}/api/v1/rag/query/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            top_k: topK,
+            enable_hybrid: enableHybrid
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop(); // Keep incomplete chunk
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') break;
+
+            try {
+              const payload = JSON.parse(dataStr);
+
+              // 1. Handle Citations Event
+              if (payload.event === 'citations') {
+                renderCitations(payload.data);
+                const retrieveTime = ((performance.now() - startTime) / 1000).toFixed(2);
+                timingBadge.textContent = `Retrieved in ${retrieveTime}s`;
+              }
+
+              // 2. Handle Token Event
+              if (payload.token) {
+                if (!hasReceivedFirstToken) {
+                  hasReceivedFirstToken = true;
+                  outputBox.innerHTML = '';
+                }
+                streamedText += payload.token;
+                outputBox.innerHTML = escapeHtml(streamedText) + `<span class="inline-block w-2 h-4 bg-indigo-500 ml-0.5 cursor-blink"></span>`;
+                outputBox.scrollTop = outputBox.scrollHeight;
+              }
+            } catch (e) {
+              console.error('Parse error:', e, dataStr);
+            }
+          }
+        }
+
+        // Finalize
+        const totalTime = ((performance.now() - startTime) / 1000).toFixed(2);
+        timingBadge.textContent = `Completed in ${totalTime}s`;
+        outputBox.innerHTML = escapeHtml(streamedText);
+
+      } catch (err) {
+        outputBox.innerHTML = `<span class="text-red-500 font-medium">Error: ${err.message}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Stream Answer</span>`;
+      }
+    }
+
+    function renderCitations(citations) {
+      const section = document.getElementById('citationsSection');
+      const cards = document.getElementById('citationCards');
+      const count = document.getElementById('citationCount');
+
+      if (!citations || !citations.length) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      count.textContent = `${citations.length} chunks referenced`;
+      cards.innerHTML = citations.map((c, i) => `
+        <div class="p-3 bg-[var(--background)] rounded-lg border border-[var(--border)] space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-semibold text-emerald-600 dark:text-emerald-400">[Source #${i + 1}] ${escapeHtml(c.document_title)} (Chunk #${c.chunk_id})</span>
+            <span class="font-mono text-[var(--muted-foreground)]">Score: ${c.similarity_score}</span>
+          </div>
+          <p class="text-[var(--muted-foreground)] text-xs line-clamp-3 font-mono leading-relaxed bg-[var(--card)] p-2 rounded border border-[var(--border)]">${escapeHtml(c.content)}</p>
+        </div>
+      `).join('');
+
+      section.classList.remove('hidden');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Initial load
+    window.onload = () => {
+      loadDocuments();
+    };
+  </script>
+</body>
+</html>
