@@ -297,7 +297,7 @@ A developer can branch a 10TB database in less than 2 seconds without copying a 
               <div class="font-medium text-[var(--foreground)]">${d.title}</div>
               <div class="text-[11px] text-[var(--muted-foreground)]">ID: ${d.id} • Chunks: ${d.total_chunks} • ${d.source || 'No source'}</div>
             </div>
-            <button onclick="deleteDoc(${d.id})" class="text-red-500 hover:text-red-700 p-1 text-xs">Delete</button>
+            <button onclick="deleteDoc('${d.id}')" class="text-red-500 hover:text-red-700 p-1 text-xs font-medium">Delete</button>
           </div>
         `).join('');
       } catch (err) {
